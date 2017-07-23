@@ -1,3 +1,12 @@
+
+# Peer-graded Assignment: Course Project 1
+
+1. The source: [PA1_template.Rmd](PA1_template.Rmd)
+2. The results (Markdown): [PA1_template.md](PA1_template.md)
+3. The results (HTML): [PA1_template.html](PA1_template.html)
+
+The original assignments instructions below:
+
 ## Introduction
 
 It is now possible to collect a large amount of data about personal
