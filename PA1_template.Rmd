@@ -6,20 +6,151 @@ output:
 ---
 
 
-## Loading and preprocessing the data
+## 1. Loading and preprocessing the data
+
+The dataset is activity monitoring data. The variables included in this dataset
+are:
+
+- steps: Number of steps taking in a 5-minute interval (missing values are coded
+  as NA)
+- date: The date on which the measurement was taken in YYYY-MM-DD format
+- interval: Identifier for the 5-minute interval in which measurement was taken
+
+```{r echo=TRUE}
+data_file <- "activity.csv"
+if (!file.exists(data_file)) {
+    unzip("activity.zip")
+}
+activity_data <- read.csv(data_file)
+str(activity_data)
+```
 
 
+## 2. What is mean total number of steps taken per day?
 
-## What is mean total number of steps taken per day?
+Histogram of the total number of steps taken each day:
+
+```{r histogram,echo=TRUE}
+library(dplyr, warn.conflicts = FALSE)
+
+daily_steps <- activity_data %>%
+    group_by(date) %>%
+    summarize(steps = sum(steps, na.rm = TRUE))
+hist(daily_steps$steps,
+     main = "Histogram: Steps per day",
+     xlab="Steps per day",
+     ylab="Number of days")
+```
+
+```{r echo=TRUE}
+mean_steps <- as.integer(round(mean(daily_steps$steps, na.rm = TRUE)))
+median_steps <- as.integer(round(median(daily_steps$steps, na.rm = TRUE)))
+```
+
+The average per day is `r mean_steps` steps and the median per day is
+`r median_steps` steps.
 
 
+## 3. What is the average daily activity pattern?
 
-## What is the average daily activity pattern?
+To calculate the activity profile the mean is calculate for all intervals:
+
+```{r echo=TRUE}
+activity_profile <- activity_data %>%
+    group_by(interval) %>%
+    summarize(steps = mean(steps, na.rm = TRUE))
+
+max_row_id <- which.max(activity_profile$steps)
+max_interval <- activity_profile[max_row_id,]$interval
+max_steps <- format(activity_profile[max_row_id,]$steps, digits=0)
+```
+
+The interval when maximum number of steps are taken is `r max_interval`. This is
+the time 8:35 in the morning. The average steps taken then is `r max_steps`
+steps. The daily activity pattern is illustrated by following plot:
+
+```{r activity_profile,echo=TRUE}
+plot(activity_profile$interval,
+     activity_profile$steps,
+     type="l",
+     main = "Activity profile",
+     xlab="",
+     ylab="Steps")
+```
 
 
+## 4. Imputing missing values
 
-## Imputing missing values
+```{r echo=TRUE}
+missing <- is.na(activity_data$steps)
+missing_observations <- sum(missing)
+```
+
+There are `r missing_observations` observations missing in the activity dataset.
+The strategy to fill in the missing values is to use the mean value for the
+interval defined by activity profile. The mean values are rounded to complete
+steps.
+
+```{r echo=TRUE,cache=TRUE}
+imputed_data <- activity_data
+for( i in 1:length(imputed_data$steps) ) {
+    # There must be a better way to do this in R.
+    # For loop is not an efficient solution.
+    if (is.na(imputed_data[i,]$steps)) {
+        interval_id <- imputed_data[i,]$interval
+        profile_row <- filter(activity_profile, interval == interval_id)
+        imputed_data[i,]$steps = as.integer(round(profile_row$steps))
+    }
+}
+str(imputed_data)
+```
+
+The histogram for imputed dataset:
+
+```{r imputed_histogram,echo=TRUE}
+daily_steps2 <- imputed_data %>%
+    group_by(date) %>%
+    summarize(steps = sum(steps))
+hist(daily_steps2$steps,
+     main = "Histogram: Steps per day (imputed)",
+     xlab="Steps per day",
+     ylab="Number of days")
+```
+
+```{r echo=TRUE}
+mean_steps2 <- as.integer(round(mean(daily_steps2$steps)))
+median_steps2 <- as.integer(round(median(daily_steps2$steps)))
+```
+
+When the dataset has been imputed the average per day is `r mean_steps2` steps
+and the median per day is `r median_steps2` steps.
+
+When imputing the dataset it will get a gaussian distribution and the mean and
+the median are close to each other.
 
 
+## 5. Are there differences in activity patterns between weekdays and weekends?
 
-## Are there differences in activity patterns between weekdays and weekends?
+```{r echo=TRUE}
+weekend <- c("Sunday", "Saturday")
+imputed_data <- imputed_data %>%
+    mutate(daytype = ifelse(weekdays(strptime(date, "%Y-%m-%d")) %in% weekend,
+                            "weekend", "weekday"))
+str(imputed_data)
+
+week_profile <- imputed_data %>%
+    group_by(interval, daytype) %>%
+    summarize(steps = mean(steps))
+```
+
+The following figure illustrates the differences between weekday and weekend
+profiles:
+
+```{r weekday_profile,echo=TRUE}
+library(ggplot2, warn.conflicts = FALSE)
+
+qplot(interval, steps, data = week_profile) +
+    geom_line() +
+    facet_wrap(~daytype, nrow = 2)
+
+```
